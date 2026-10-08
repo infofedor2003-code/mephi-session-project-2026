@@ -1,0 +1,123 @@
+    1  lsblk -o NAME,SIZE,TYPE,FSTYPE,LABEL,MOUNTPOINTS
+    2  parted --script /dev/sdb mklabel gpt mkpart primary ext4 1MiB 100%
+    3  partprobe /dev/sdb
+    4  udevadm settle
+    5  mkfs.ext4 -F -L MEPHI_WEB /dev/sdb1
+    6  install -d -m 0755 /mephi-web
+    7  printf '%s\n' 'LABEL=MEPHI_WEB /mephi-web ext4 defaults 0 2' >> /etc/fstab
+    8  mount /mephi-web
+    9  findmnt /mephi-web
+   10  groupadd developers
+   11  groupadd -g 4444 curators
+   12  useradd -m -u 5501 -g developers -s /bin/bash user1
+   13  useradd -m -u 5502 -g developers -s /bin/bash user2
+   14  useradd -m -u 5503 -g developers -s /bin/bash user3
+   15  useradd -m -g curators -s /bin/bash curator1
+   16  useradd -m -g curators -s /bin/bash curator2
+   17  passwd user1
+   18  passwd user2
+   19  passwd user3
+   20  passwd curator1
+   21  passwd curator2
+   22  for u in user1 user2 user3 curator1 curator2; do chage -M 90 "$u"; done
+   23  mkdir -p /etc/security/pwquality.conf.d
+   24  printf '%s\n' 'minlen = 12' > /etc/security/pwquality.conf.d/mephi.conf
+   25  mkdir -p /data/mephi-2026
+   26  chown root:developers /data/mephi-2026
+   27  chmod 2770 /data/mephi-2026
+   28  setfacl -m u::rwx,g::rwx,g:developers:rwx,g:curators:rx,o::---,m::rwx /data/mephi-2026
+   29  setfacl -d -m u::rwx,g::rwx,g:developers:rwx,g:curators:rx,o::---,m::rwx /data/mephi-2026
+   30  getfacl /data/mephi-2026
+   31  authselect current
+   32  authselect enable-feature with-pamaccess
+   33  grep -qxF -- '-:(curators):LOCAL' /etc/security/access.conf || sed -i '1i-:(curators):LOCAL' /etc/security/access.conf
+   34  getenforce
+   35  setenforce 1
+   36  sed -ri 's/^SELINUX=.*/SELINUX=enforcing/' /etc/selinux/config
+   37  getenforce
+   38  setcap cap_net_raw,cap_net_admin=eip /usr/sbin/tcpdump
+   39  getcap /usr/sbin/tcpdump
+   40  sudo -u user1 /usr/sbin/tcpdump -D
+   41  printf 'Hello from Student: М265946\n' > /mephi-web/index.html
+   42  chown root:root /mephi-web/index.html
+   43  chmod 0644 /mephi-web/index.html
+   44  mkdir -p /etc/nginx/vhosts
+   45  cat > /etc/nginx/vhosts/mephi.conf <<'EOF'
+server {
+    listen 80;
+    server_name _;
+    root /mephi-web;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+}
+EOF
+
+   46  include /etc/nginx/vhosts/*.conf;
+   47  grep -nF 'include /etc/nginx/vhosts/*.conf;' /etc/nginx/nginx.conf
+   48  sed -i '/^[[:space:]]*server[[:space:]]*{/i\    include /etc/nginx/vhosts/*.conf;' /etc/nginx/nginx.conf
+   49  grep -nF 'include /etc/nginx/vhosts/*.conf;' /etc/nginx/nginx.conf
+   50  semanage fcontext -a -t httpd_sys_content_t '/mephi-web(/.*)?' 2>/dev/null || semanage fcontext -m -t httpd_sys_content_t '/mephi-web(/.*)?'
+   51  restorecon -Rv /mephi-web
+   52  nginx -t
+   53  systemctl enable --now nginx
+   54  systemctl restart nginx
+   55  curl http://localhost/
+   56  grep -nF 'include /etc/nginx/vhosts/*.conf;' /etc/nginx/nginx.conf
+   57  ls -l /etc/nginx/vhosts/mephi.conf
+   58  nginx -T 2>&1 | grep -nE 'vhosts|mephi-web|server_name'
+   59  nginx -T 2>&1 | grep -n 'listen 80'
+   60  nginx -T 2>&1 | grep -nE 'configuration file|listen[[:space:]]+80|root[[:space:]]+|server_name'
+   61  sed -i 's/^[[:space:]]*listen 80;[[:space:]]*$/    listen 80 default_server;/' /etc/nginx/vhosts/mephi.conf
+   62  nginx -t && systemctl reload nginx
+   63  curl -s http://localhost/
+   64  sed -i 's/^[[:space:]]*listen 80;[[:space:]]*$/    listen 80 default_server;/' /etc/nginx/vhosts/mephi.conf
+   65  nginx -t && systemctl reload nginx
+   66  curl -s http://localhost/
+   67  sed -ri 's#^([[:space:]]*)listen[[:space:]]+80[[:space:]]+default_server;#\1listen 80;#' /etc/nginx/vhosts/mephi.conf
+   68  sed -ri 's#^([[:space:]]*)root[[:space:]]+/usr/share/nginx/html;#\1root /mephi-web;#' /etc/nginx/nginx.conf
+   69  nginx -t
+   70  systemctl reload nginx
+   71  restorecon -Rv /mephi-web
+   72  curl -s http://localhost/
+   73  find /home/fedor -type f -name 'Screenshot_20261008_204249.png' -exec cp -p {} /root/mephi-screenshot.png \;
+   74  ls -lh /root/mephi-screenshot.png
+   75  history > /root/history.out
+   76  ping -c 4 8.8.8.8 > /root/ping.out
+   77  stat /data/mephi-2026 > /root/stat.out
+   78  getcap /usr/sbin/tcpdump > /root/getcap.out
+   79  dnf history > /root/dnf.out
+   80  journalctl -u nginx -b > /root/journalctl.out
+   81  getenforce > /root/getenforce.out
+   82  stat /mephi-web >> /root/stat.out
+   83  curl http://localhost/ > /root/curl.out
+   84  getfacl /data/mephi-2026 > /root/getfacl.out
+   85  lsblk -f > /root/lsblk.out
+   86  findmnt /mephi-web > /root/findmnt.out
+   87  ystemctl is-enabled nginx > /root/nginx-enabled.out
+   88  systemctl is-enabled nginx > /root/nginx-enabled.out
+   89  systemctl is-active nginx > /root/nginx-active.out
+   90  D=/root/mephi-session-project-2026
+   91  mkdir -p "$D"
+   92  cp -p /root/history.out /root/ping.out /root/stat.out /root/getcap.out "$D/"
+   93  cp -p /root/dnf.out /root/journalctl.out /root/getenforce.out /root/curl.out "$D/"
+   94  cp -p /root/getfacl.out /root/lsblk.out /root/findmnt.out "$D/"
+   95  cp -p /root/nginx-enabled.out /root/nginx-active.out "$D/"
+   96  cp -p /root/mephi-screenshot.png "$D/"
+   97  cp -p /tmp/tcpdump-4.99.5-1.red80.x86_64.rpm "$D/"
+   98  D=/root/mephi-session-project-2026
+   99  dnf download --destdir /tmp tcpdump.x86_64
+  100  ls -lh /tmp/tcpdump*.rpm
+  101  cp -p /tmp/tcpdump*.x86_64.rpm "$D/"
+  102  cp -p /etc/passwd /etc/shadow /etc/group /etc/fstab "$D/"
+  103  cp -p /etc/nginx/nginx.conf "$D/nginx.conf"
+  104  cp -p /etc/nginx/vhosts/mephi.conf "$D/mephi.conf"
+  105  cp -p /etc/security/pwquality.conf.d/mephi.conf "$D/pwquality-mephi.conf"
+  106  cp -p /etc/security/access.conf "$D/access.conf"
+  107  cp -p /etc/selinux/config "$D/selinux-config"
+  108  ls -lh "$D"
+  109  D=/root/mephi-session-project-2026
+  110  cp -p /etc/nginx/vhosts/mephi.conf "$D/mephi.conf"
+  111  history > /root/history.out
